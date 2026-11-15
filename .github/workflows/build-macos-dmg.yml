@@ -13,7 +13,7 @@ jobs:
       - name: Install build and packaging dependencies
         run: |
           brew update
-          brew install ninja molten-vk ffmpeg dylibbundler
+          brew install ninja vulkan-loader molten-vk ffmpeg dylibbundler
 
       - name: Configure and Build (CMake + Ninja)
         working-directory: engine
@@ -36,7 +36,6 @@ jobs:
             -DKOTOR_ENGINE_BUILD_TESTS=OFF
           cmake --build build-macos --parallel
 
-
       - name: Package standalone .app and .dmg
         run: |
           BUILD_DIR="engine/build-macos"
@@ -58,30 +57,39 @@ jobs:
           chmod +x "$APP_DIR/Contents/MacOS/kotor_engine_bin"
           cp -R "$BUILD_DIR/shaders" "$APP_DIR/Contents/MacOS/shaders"
 
-          # 3. Create launcher wrapper script (sets MoltenVK path & prompts for GOG install folder)
+          # 3. Create launcher wrapper script (checks parent folder of .app for chitin.key first)
           cat << 'EOF' > "$APP_DIR/Contents/MacOS/kotor_engine"
           #!/bin/bash
           DIR="$(cd "$(dirname "$0")" && pwd)"
+          FRAMEWORKS_DIR="$DIR/../Frameworks"
           RESOURCES_DIR="$DIR/../Resources"
+          APP_PARENT_DIR="$(cd "$DIR/../../.." && pwd)"
 
-          # Point Vulkan loader to bundled MoltenVK ICD
+          # Let volk find bundled libvulkan.1.dylib and MoltenVK ICD
+          export DYLD_FALLBACK_LIBRARY_PATH="$FRAMEWORKS_DIR"
           export VK_ICD_FILENAMES="$RESOURCES_DIR/vulkan/icd.d/MoltenVK_icd.json"
           cd "$DIR"
 
-          # Look for default GOG extract folder in ~/Games/KOTOR_GOG
-          GAME_DIR="$HOME/Games/KOTOR_GOG"
-          if [ ! -f "$GAME_DIR/chitin.key" ]; then
-              GAME_DIR=$(osascript -e 'POSIX path of (choose folder with prompt "Select your KotOR GOG installation folder (containing chitin.key):")' 2>/dev/null)
-              if [ -z "$GAME_DIR" ]; then
-                  exit 0
+          # Check if --install was passed via CLI, otherwise check folder containing the .app, else prompt user
+          if [[ "$*" != *"--install"* ]]; then
+              if [ -f "$APP_PARENT_DIR/chitin.key" ] || [ -f "$APP_PARENT_DIR/CHITIN.KEY" ]; then
+                  GAME_DIR="$APP_PARENT_DIR"
+              else
+                  GAME_DIR=$(osascript -e 'POSIX path of (choose folder with prompt "Select your KotOR installation folder (containing chitin.key):")' 2>/dev/null)
+                  if [ -z "$GAME_DIR" ]; then
+                      exit 0
+                  fi
               fi
+              EXTRA_ARGS=(--install "$GAME_DIR")
+          else
+              EXTRA_ARGS=()
           fi
 
           exec "$DIR/kotor_engine_bin" \
               --vulkan \
               --chargen-gui \
               --third-person \
-              --install "$GAME_DIR" \
+              "${EXTRA_ARGS[@]}" \
               "$@"
           EOF
           chmod +x "$APP_DIR/Contents/MacOS/kotor_engine"
@@ -116,9 +124,12 @@ jobs:
             -d "$APP_DIR/Contents/Frameworks/" \
             -p "@executable_path/../Frameworks/"
 
-          # 6. Bundle MoltenVK and its relative ICD manifest
+          # 6. Bundle Vulkan loader (libvulkan.1.dylib) and MoltenVK ICD
+          VULKAN_LOADER=$(find /opt/homebrew -name "libvulkan.1.dylib" | head -n 1)
           MOLTENVK_PATH=$(find /opt/homebrew -name "libMoltenVK.dylib" | head -n 1)
+          cp "$VULKAN_LOADER" "$APP_DIR/Contents/Frameworks/libvulkan.1.dylib"
           cp "$MOLTENVK_PATH" "$APP_DIR/Contents/Frameworks/libMoltenVK.dylib"
+
           cat << 'EOF' > "$APP_DIR/Contents/Resources/vulkan/icd.d/MoltenVK_icd.json"
           {
               "file_format_version" : "1.0.0",
