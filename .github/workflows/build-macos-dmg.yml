@@ -22,9 +22,11 @@ jobs:
         run: |
           # Avoid failing on empty Windows DLL list on macOS
           python3 -c '
+          import re
           p = "CMakeLists.txt"
           txt = open(p).read()
-          txt = txt.replace("if(TARGET kotor_ffmpeg)\n  file(GLOB KOTOR_FFMPEG_DLLS", "if(WIN32 AND TARGET kotor_ffmpeg)\n  file(GLOB KOTOR_FFMPEG_DLLS")
+          txt = re.sub(r"if\s*\(\s*TARGET\s+kotor_ffmpeg\s*\)\s+file\s*\(\s*GLOB\s+KOTOR_FFMPEG_DLLS",
+                       "if(WIN32 AND TARGET kotor_ffmpeg)\n  file(GLOB KOTOR_FFMPEG_DLLS", txt)
           open(p, "w").write(txt)
           '
 
