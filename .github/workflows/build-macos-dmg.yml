@@ -20,16 +20,6 @@ jobs:
         env:
           KOTOR_FFMPEG_ROOT: /opt/homebrew/opt/ffmpeg
         run: |
-          # Avoid failing on empty Windows DLL list on macOS
-          python3 -c '
-          import re
-          p = "CMakeLists.txt"
-          txt = open(p).read()
-          txt = re.sub(r"if\s*\(\s*TARGET\s+kotor_ffmpeg\s*\)\s+file\s*\(\s*GLOB\s+KOTOR_FFMPEG_DLLS",
-                       "if(WIN32 AND TARGET kotor_ffmpeg)\n  file(GLOB KOTOR_FFMPEG_DLLS", txt)
-          open(p, "w").write(txt)
-          '
-
           cmake -B build-macos -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DKOTOR_ENGINE_WARNINGS_AS_ERRORS=OFF \
@@ -65,9 +55,10 @@ jobs:
           RESOURCES_DIR="$DIR/../Resources"
           APP_PARENT_DIR="$(cd "$DIR/../../.." && pwd)"
 
-          # Let volk find bundled libvulkan.1.dylib and MoltenVK ICD
+          # Share the same Vulkan loader between volk and SDL3 on macOS
           export DYLD_FALLBACK_LIBRARY_PATH="$FRAMEWORKS_DIR"
           export VK_ICD_FILENAMES="$RESOURCES_DIR/vulkan/icd.d/MoltenVK_icd.json"
+          export SDL_VULKAN_LIBRARY="$FRAMEWORKS_DIR/libvulkan.1.dylib"
           cd "$DIR"
 
           # Check if --install was passed via CLI, otherwise check folder containing the .app, else prompt user
