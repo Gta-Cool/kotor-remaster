@@ -6,9 +6,6 @@ namespace ke::kotor {
 
 namespace {
 
-constexpr const char* kKotor1Sha = "0290889e0cea6ebc00021c1bdb945704fc4c45afaf7fcebabb0e82ba674437e6";
-constexpr const char* kKotor2Sha = "6a522e71631dcee93467bd2010f3b23d9145326e1e2e89305f13ab104dbbffef";
-
 bool isFile(const std::filesystem::path& path)
 {
     return std::filesystem::is_regular_file(path);
@@ -29,25 +26,28 @@ const char* gameKindName(GameKind kind)
 GameProfile GameProfile::detect(const std::filesystem::path& gameDir)
 {
     GameProfile profile;
-    const std::filesystem::path kotor2 = gameDir / "swkotor2.exe";
-    const std::filesystem::path kotor1 = gameDir / "swkotor.exe";
-    if (isFile(kotor2)) {
+    const std::filesystem::path chitinkey = gameDir / "chitin.key";
+    const std::filesystem::path dialogtlk = gameDir / "dialog.tlk";
+    const std::filesystem::path rim001EBO = gameDir / "Modules" / "001EBO.rim";
+    const std::filesystem::path rim001ebo = gameDir / "Modules" / "001ebo.rim";
+    if (isFile(chitinkey) && (isFile(rim001EBO) || isFile(rim001ebo))) {
         profile.kind = GameKind::KotOR2;
         profile.name = "Knights of the Old Republic II";
-        profile.executable = "swkotor2.exe";
-        profile.buildSha256 = sha256File(kotor2);
-        profile.recognized = profile.buildSha256 == kKotor2Sha;
+        profile.executable = "chitin.key";
+        profile.buildSha256 = sha256File(chitinkey);
+        profile.recognized = true;
         return profile;
     }
-    if (isFile(kotor1)) {
+    if (isFile(chitinkey) && isFile(dialogtlk)) {
         profile.kind = GameKind::KotOR1;
         profile.name = "Knights of the Old Republic";
-        profile.executable = "swkotor.exe";
-        profile.buildSha256 = sha256File(kotor1);
-        profile.recognized = profile.buildSha256 == kKotor1Sha;
+        profile.executable = "chitin.key";
+        profile.buildSha256 = sha256File(chitinkey);
+        profile.recognized = true;
         return profile;
     }
     profile.name = "not a KotOR install";
+    profile.recognized = false;
     return profile;
 }
 
