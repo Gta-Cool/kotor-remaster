@@ -196,7 +196,7 @@ if(WIN32)
     set_target_properties(kotor_engine PROPERTIES WIN32_EXECUTABLE OFF)
 endif()
 
-if(TARGET kotor_ffmpeg)
+if(WIN32 AND TARGET kotor_ffmpeg)
     file(GLOB KOTOR_FFMPEG_DLLS
         "${KOTOR_FFMPEG_ROOT}/bin/avcodec-*.dll"
         "${KOTOR_FFMPEG_ROOT}/bin/avformat-*.dll"
